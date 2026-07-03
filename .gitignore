@@ -1,0 +1,19 @@
+# Rust
+server/target/
+
+# Node
+web/node_modules/
+web/dist/
+
+# Local config & data
+providers.toml
+*.sqlite
+*.sqlite-journal
+*.db
+
+# Env
+.env
+.env.local
+
+# OS
+.DS_Store
