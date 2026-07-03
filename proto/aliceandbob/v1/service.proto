@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package aliceandbob.v1;
+
+import "aliceandbob/v1/agents.proto";
+import "aliceandbob/v1/game.proto";
+
+service ArenaService {
+  // Kick off a single match between two players. Returns immediately with the
+  // match id; progress is observed via WatchMatch.
+  rpc StartMatch(StartMatchRequest) returns (StartMatchResponse) {}
+
+  // Server-streaming feed of everything happening in a match. Replays events
+  // already emitted, then follows live.
+  rpc WatchMatch(WatchMatchRequest) returns (stream MatchEvent) {}
+
+  rpc ListMatches(ListMatchesRequest) returns (ListMatchesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  rpc GetMatch(GetMatchRequest) returns (GetMatchResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Leaderboard + population snapshot.
+  rpc GetPopulation(GetPopulationRequest) returns (GetPopulationResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Full memo history for an agent, oldest first.
+  rpc GetMemoLineage(GetMemoLineageRequest) returns (GetMemoLineageResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Run one generation of the population tournament (M3; stubbed for now).
+  rpc StartGeneration(StartGenerationRequest) returns (StartGenerationResponse) {}
+}
+
+message StartMatchRequest {
+  string agent_a_id = 1;
+  string agent_b_id = 2;
+  // Optional: agent id of the GM to use; default GM if empty.
+  string gm_agent_id = 3;
+  // Optional hint passed to the GM (e.g. "design a bluffing game").
+  string game_hint = 4;
+}
+
+message StartMatchResponse {
+  string match_id = 1;
+}
+
+message WatchMatchRequest {
+  string match_id = 1;
+}
+
+message ListMatchesRequest {
+  uint32 limit = 1;
+}
+
+message ListMatchesResponse {
+  repeated MatchSummary matches = 1;
+}
+
+message GetMatchRequest {
+  string match_id = 1;
+}
+
+message GetMatchResponse {
+  MatchSummary summary = 1;
+  GameSpec spec = 2;
+  repeated RoundResult rounds = 3;
+}
+
+message ListAgentsRequest {}
+
+message ListAgentsResponse {
+  repeated AgentConfig agents = 1;
+}
+
+message GetPopulationRequest {}
+
+message GetPopulationResponse {
+  repeated PlayerStats players = 1;
+  uint32 current_generation = 2;
+}
+
+message GetMemoLineageRequest {
+  string agent_id = 1;
+}
+
+message GetMemoLineageResponse {
+  repeated Memo memos = 1;
+}
+
+message StartGenerationRequest {
+  // Matches each pair plays this generation.
+  uint32 matches_per_pairing = 1;
+}
+
+message StartGenerationResponse {
+  uint32 generation = 1;
+  repeated string match_ids = 2;
+}

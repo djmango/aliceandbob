@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package aliceandbob.v1;
+
+enum AgentRole {
+  AGENT_ROLE_UNSPECIFIED = 0;
+  AGENT_ROLE_GAME_MASTER = 1;
+  AGENT_ROLE_PLAYER = 2;
+}
+
+// A configured agent: a model plus a persona, bound to a provider.
+message AgentConfig {
+  string id = 1;
+  string name = 2;
+  AgentRole role = 3;
+  // Provider key from providers.toml (e.g. "openrouter", "groq", "ollama").
+  string provider = 4;
+  // Model identifier as the provider expects it.
+  string model = 5;
+  // Optional persona / system-prompt flavor text.
+  string persona = 6;
+}
+
+// A versioned strategy memo. The evolving "genome" of a player.
+message Memo {
+  string id = 1;
+  string agent_id = 2;
+  uint32 version = 3;
+  string content = 4;
+  // Match that produced this revision (empty for version 0 seeds).
+  string match_id = 5;
+  int64 created_at_ms = 6;
+}
+
+// Aggregate performance for the leaderboard.
+message PlayerStats {
+  string agent_id = 1;
+  string agent_name = 2;
+  string model = 3;
+  uint32 matches_played = 4;
+  uint32 wins = 5;
+  uint32 losses = 6;
+  uint32 draws = 7;
+  double total_score = 8;
+  uint32 memo_version = 9;
+}

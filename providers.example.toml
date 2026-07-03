@@ -1,0 +1,43 @@
+# Copy to providers.toml and fill in keys. providers.toml is gitignored.
+
+[server]
+port = 3030
+database = "aliceandbob.sqlite"
+
+# Any OpenAI-compatible endpoint works.
+[providers.openrouter]
+base_url = "https://openrouter.ai/api/v1"
+api_key_env = "OPENROUTER_API_KEY"
+
+[providers.groq]
+base_url = "https://api.groq.com/openai/v1"
+api_key_env = "GROQ_API_KEY"
+
+[providers.ollama]
+base_url = "http://localhost:11434/v1"
+# no key needed
+
+# --- Agents: mix models per role freely ---
+
+[[agents]]
+id = "gm"
+name = "The Game Master"
+role = "game_master"
+provider = "openrouter"
+model = "anthropic/claude-sonnet-4"
+
+[[agents]]
+id = "alice"
+name = "Alice"
+role = "player"
+provider = "groq"
+model = "llama-3.3-70b-versatile"
+persona = ""
+
+[[agents]]
+id = "bob"
+name = "Bob"
+role = "player"
+provider = "groq"
+model = "moonshotai/kimi-k2-instruct"
+persona = ""

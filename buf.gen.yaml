@@ -1,0 +1,9 @@
+version: v2
+clean: true
+plugins:
+  # Connect-ES v2: protoc-gen-es generates both messages and service
+  # descriptors; clients are created with createClient() at runtime.
+  - local: protoc-gen-es
+    out: web/src/gen
+    opt:
+      - target=ts

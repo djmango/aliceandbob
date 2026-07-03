@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package aliceandbob.v1;
+
+// How players take turns within a round.
+enum TurnStructure {
+  TURN_STRUCTURE_UNSPECIFIED = 0;
+  // Both players act without seeing the other's action (e.g. prisoner's dilemma).
+  TURN_STRUCTURE_SIMULTANEOUS = 1;
+  // Players alternate, each seeing prior actions (e.g. negotiation, ultimatum).
+  TURN_STRUCTURE_ALTERNATING = 2;
+}
+
+// Who scored a round.
+enum Adjudicator {
+  ADJUDICATOR_UNSPECIFIED = 0;
+  // Engine scored mechanically from the payoff matrix.
+  ADJUDICATOR_ENGINE = 1;
+  // GM was called to adjudicate.
+  ADJUDICATOR_GM = 2;
+}
+
+// One cell of a machine-readable payoff matrix keyed by canonical action ids.
+message PayoffEntry {
+  string action_a = 1;
+  string action_b = 2;
+  double score_a = 3;
+  double score_b = 4;
+}
+
+// A game invented by the GM. Emitted as JSON by the LLM, schema-validated,
+// then carried through the system as this message.
+message GameSpec {
+  string id = 1;
+  string title = 2;
+  // Full natural-language rules shown to players.
+  string rules_text = 3;
+  TurnStructure turn_structure = 4;
+  uint32 num_rounds = 5;
+  // JSON Schema that player actions must conform to.
+  string action_schema_json = 6;
+  // Natural-language description of payoffs (always present).
+  string payoff_description = 7;
+  // If non-empty, the engine can score rounds without calling the GM.
+  repeated PayoffEntry payoff_matrix = 8;
+}
+
+// A single player action within a round.
+message Action {
+  string agent_id = 1;
+  uint32 round = 2;
+  // The structured action, conforming to GameSpec.action_schema_json.
+  string action_json = 3;
+  // Private chain-of-thought, logged but never shown to the opponent.
+  string private_reasoning = 4;
+}
+
+// Outcome of one round.
+message RoundResult {
+  uint32 round = 1;
+  repeated Action actions = 2;
+  double score_a = 3;
+  double score_b = 4;
+  // Short GM/engine narration of what happened.
+  string narration = 5;
+  Adjudicator adjudicated_by = 6;
+}
+
+enum MatchStatus {
+  MATCH_STATUS_UNSPECIFIED = 0;
+  MATCH_STATUS_PENDING = 1;
+  MATCH_STATUS_GENERATING_GAME = 2;
+  MATCH_STATUS_IN_PROGRESS = 3;
+  MATCH_STATUS_REFLECTING = 4;
+  MATCH_STATUS_COMPLETED = 5;
+  MATCH_STATUS_FAILED = 6;
+}
+
+// Final result of a match.
+message MatchResult {
+  double total_score_a = 1;
+  double total_score_b = 2;
+  // Agent id of the winner, empty on draw.
+  string winner_agent_id = 3;
+}
+
+// Summary row for match lists.
+message MatchSummary {
+  string id = 1;
+  string game_title = 2;
+  string agent_a_id = 3;
+  string agent_b_id = 4;
+  MatchStatus status = 5;
+  MatchResult result = 6;
+  // Unix epoch milliseconds.
+  int64 created_at_ms = 7;
+}
+
+// Streamed to the live match viewer.
+message MatchEvent {
+  string match_id = 1;
+  int64 timestamp_ms = 2;
+  oneof event {
+    GameGenerated game_generated = 10;
+    RoundStarted round_started = 11;
+    ActionSubmitted action_submitted = 12;
+    RoundScored round_scored = 13;
+    MatchCompleted match_completed = 14;
+    MemoUpdated memo_updated = 15;
+    MatchError match_error = 16;
+  }
+
+  message GameGenerated {
+    GameSpec spec = 1;
+  }
+  message RoundStarted {
+    uint32 round = 1;
+  }
+  message ActionSubmitted {
+    Action action = 1;
+  }
+  message RoundScored {
+    RoundResult result = 1;
+  }
+  message MatchCompleted {
+    MatchResult result = 1;
+  }
+  message MemoUpdated {
+    string agent_id = 1;
+    uint32 memo_version = 2;
+  }
+  message MatchError {
+    string message = 1;
+  }
+}
