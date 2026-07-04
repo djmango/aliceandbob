@@ -21,6 +21,10 @@ pub struct ServerConfig {
     pub port: u16,
     #[serde(default = "default_db")]
     pub database: String,
+    /// Directory with the built web UI (vite `dist`). Served at / when set
+    /// and present, so a single binary/container hosts API + UI.
+    #[serde(default)]
+    pub web_dist: Option<String>,
 }
 
 impl Default for ServerConfig {
@@ -28,6 +32,7 @@ impl Default for ServerConfig {
         Self {
             port: default_port(),
             database: default_db(),
+            web_dist: None,
         }
     }
 }
@@ -48,6 +53,16 @@ pub struct ProviderConfig {
     pub api_key: Option<String>,
     /// Name of an environment variable holding the API key.
     pub api_key_env: Option<String>,
+    /// Max in-flight requests to this provider (queue size gate).
+    #[serde(default = "default_max_concurrent")]
+    pub max_concurrent: u32,
+    /// Pace request starts to this rate. Essential for free tiers
+    /// (e.g. Groq free = 30 RPM; set ~25 to leave headroom).
+    pub requests_per_minute: Option<u32>,
+}
+
+fn default_max_concurrent() -> u32 {
+    4
 }
 
 impl ProviderConfig {

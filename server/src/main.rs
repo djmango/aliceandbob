@@ -55,9 +55,24 @@ async fn main() -> anyhow::Result<()> {
         .with_state(engine)
         .build_connect();
 
-    let app = connect_router
-        .route("/health", get(|| async { "ok" }))
-        .layer(CorsLayer::very_permissive());
+    let mut app = connect_router.route("/health", get(|| async { "ok" }));
+
+    // Serve the built web UI (SPA fallback to index.html) when configured,
+    // so one process hosts both API and frontend in deployment.
+    if let Some(dist) = &config.server.web_dist {
+        if std::path::Path::new(dist).is_dir() {
+            let index = format!("{dist}/index.html");
+            app = app.fallback_service(
+                tower_http::services::ServeDir::new(dist)
+                    .fallback(tower_http::services::ServeFile::new(index)),
+            );
+            tracing::info!(dist, "serving web UI");
+        } else {
+            tracing::warn!(dist, "web_dist directory not found; UI not served");
+        }
+    }
+
+    let app = app.layer(CorsLayer::very_permissive());
 
     let addr = format!("0.0.0.0:{}", config.server.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;

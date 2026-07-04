@@ -1,0 +1,7 @@
+server/target
+web/node_modules
+web/dist
+*.sqlite
+*.sqlite-journal
+providers.toml
+.git

@@ -1,30 +1,92 @@
 # Copy to providers.toml and fill in keys. providers.toml is gitignored.
+#
+# Every provider below speaks the OpenAI chat-completions protocol, so any of
+# them can host any agent. Mix freely: GM on one provider, players on others.
+#
+# Rate limiting: `requests_per_minute` paces request starts and
+# `max_concurrent` bounds in-flight requests per provider. Calls queue up
+# instead of tripping 429s (and 429/5xx responses are retried with backoff,
+# honoring Retry-After). Set RPM slightly under the provider's advertised
+# free-tier limit.
 
 [server]
 port = 3030
 database = "aliceandbob.sqlite"
+# Serve the built web UI from the same process (used in Docker):
+# web_dist = "/app/web-dist"
 
-# Any OpenAI-compatible endpoint works.
-[providers.openrouter]
-base_url = "https://openrouter.ai/api/v1"
-api_key_env = "OPENROUTER_API_KEY"
+# ------------------------------------------------------------------
+# FREE PROVIDERS (as of mid-2026 — quotas change, check the dashboards)
+# ------------------------------------------------------------------
 
+# Groq — the default. LPU inference, very fast, no credit card.
+# Free tier: ~30 requests/min, ~1,000 requests/day.
+# Get a key: https://console.groq.com/keys
 [providers.groq]
 base_url = "https://api.groq.com/openai/v1"
 api_key_env = "GROQ_API_KEY"
+requests_per_minute = 25
+max_concurrent = 4
 
+# OpenRouter — 20+ free models behind one key (model ids ending in ":free").
+# Free tier: ~20 req/min, 50 req/day (1,000/day after a one-time $10 top-up).
+# Get a key: https://openrouter.ai/settings/keys
+[providers.openrouter]
+base_url = "https://openrouter.ai/api/v1"
+api_key_env = "OPENROUTER_API_KEY"
+requests_per_minute = 15
+max_concurrent = 2
+
+# Google AI Studio — Gemini via the OpenAI-compatible endpoint.
+# Free tier: ~10-15 req/min, up to ~1,500 req/day on Flash models.
+# Get a key: https://aistudio.google.com/apikey
+[providers.google]
+base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
+api_key_env = "GEMINI_API_KEY"
+requests_per_minute = 8
+max_concurrent = 2
+
+# Cerebras — fastest free tokens anywhere (~2,000 tok/s on 70B).
+# Free tier: ~30 req/min, ~1M tokens/day.
+# Get a key: https://cloud.cerebras.ai/ (API Keys in the sidebar)
+[providers.cerebras]
+base_url = "https://api.cerebras.ai/v1"
+api_key_env = "CEREBRAS_API_KEY"
+requests_per_minute = 25
+max_concurrent = 4
+
+# Mistral — free "Experiment" tier on their own models.
+# Get a key: https://console.mistral.ai/api-keys
+[providers.mistral]
+base_url = "https://api.mistral.ai/v1"
+api_key_env = "MISTRAL_API_KEY"
+requests_per_minute = 30
+max_concurrent = 2
+
+# GitHub Models — frontier + open models free for development.
+# Uses a GitHub PAT with the "models" scope as the key.
+# Get a token: https://github.com/settings/tokens
+[providers.github]
+base_url = "https://models.github.ai/inference"
+api_key_env = "GITHUB_MODELS_TOKEN"
+requests_per_minute = 10
+max_concurrent = 2
+
+# Ollama — local/homelab GPU, unlimited and private. No key needed.
 [providers.ollama]
 base_url = "http://localhost:11434/v1"
-# no key needed
+max_concurrent = 2
 
-# --- Agents: mix models per role freely ---
+# ------------------------------------------------------------------
+# AGENTS — default cast runs entirely on Groq's free tier
+# ------------------------------------------------------------------
 
 [[agents]]
 id = "gm"
 name = "The Game Master"
 role = "game_master"
-provider = "openrouter"
-model = "anthropic/claude-sonnet-4"
+provider = "groq"
+model = "llama-3.3-70b-versatile"
 
 [[agents]]
 id = "alice"
@@ -32,12 +94,33 @@ name = "Alice"
 role = "player"
 provider = "groq"
 model = "llama-3.3-70b-versatile"
-persona = ""
 
 [[agents]]
 id = "bob"
 name = "Bob"
 role = "player"
 provider = "groq"
-model = "moonshotai/kimi-k2-instruct"
-persona = ""
+model = "llama-3.1-8b-instant"
+
+# More interesting: cross-provider matchups. Examples:
+#
+# [[agents]]
+# id = "carol"
+# name = "Carol"
+# role = "player"
+# provider = "cerebras"
+# model = "llama-3.3-70b"
+#
+# [[agents]]
+# id = "dave"
+# name = "Dave"
+# role = "player"
+# provider = "google"
+# model = "gemini-2.5-flash"
+#
+# [[agents]]
+# id = "erin"
+# name = "Erin"
+# role = "player"
+# provider = "ollama"
+# model = "gemma3:4b"
