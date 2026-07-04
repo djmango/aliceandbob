@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { arena } from "../api";
 import type { AgentConfig, PlayerStats } from "../gen/aliceandbob/v1/agents_pb";
-import { AgentRole } from "../gen/aliceandbob/v1/agents_pb";
 import type { MatchSummary } from "../gen/aliceandbob/v1/game_pb";
 import { MatchStatus } from "../gen/aliceandbob/v1/game_pb";
+import { agentLabel, isPlayer } from "../agents";
 
 const STATUS_LABELS: Record<MatchStatus, string> = {
   [MatchStatus.UNSPECIFIED]: "unknown",
@@ -48,7 +48,7 @@ export default function Dashboard() {
       .listAgents({})
       .then((r) => {
         setAgents(r.agents);
-        const playerAgents = r.agents.filter((a) => a.role === AgentRole.PLAYER);
+        const playerAgents = r.agents.filter(isPlayer);
         if (playerAgents.length >= 2) {
           setAgentA(playerAgents[0].id);
           setAgentB(playerAgents[1].id);
@@ -76,7 +76,7 @@ export default function Dashboard() {
     }
   };
 
-  const playerAgents = agents.filter((a) => a.role === AgentRole.PLAYER);
+  const playerAgents = agents.filter(isPlayer);
 
   return (
     <div className="page">
@@ -90,7 +90,7 @@ export default function Dashboard() {
             <select value={agentA} onChange={(e) => setAgentA(e.target.value)}>
               {playerAgents.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name} ({a.model})
+                  {agentLabel(a)}
                 </option>
               ))}
             </select>
@@ -101,7 +101,7 @@ export default function Dashboard() {
             <select value={agentB} onChange={(e) => setAgentB(e.target.value)}>
               {playerAgents.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name} ({a.model})
+                  {agentLabel(a)}
                 </option>
               ))}
             </select>

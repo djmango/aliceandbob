@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { arena } from "../api";
+import { agentLabel, isPlayer } from "../agents";
 import type { AgentConfig, Memo } from "../gen/aliceandbob/v1/agents_pb";
-import { AgentRole } from "../gen/aliceandbob/v1/agents_pb";
 
 export default function MemoLineage() {
   const [agents, setAgents] = useState<AgentConfig[]>([]);
@@ -13,7 +13,7 @@ export default function MemoLineage() {
     arena
       .listAgents({})
       .then((r) => {
-        const players = r.agents.filter((a) => a.role === AgentRole.PLAYER);
+        const players = r.agents.filter(isPlayer);
         setAgents(players);
         if (players.length > 0) setSelected(players[0].id);
       })
@@ -41,7 +41,7 @@ export default function MemoLineage() {
           <select value={selected} onChange={(e) => setSelected(e.target.value)}>
             {agents.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.name} ({a.model})
+                {agentLabel(a)}
               </option>
             ))}
           </select>
