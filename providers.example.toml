@@ -28,7 +28,8 @@ api_key_env = "GROQ_API_KEY"
 requests_per_minute = 25
 max_concurrent = 4
 
-# OpenRouter — 20+ free models behind one key (model ids ending in ":free").
+# OpenRouter — free models behind one key. Use openrouter/free (auto-picks an
+# available free model) or a specific ":free" slug from GET /api/v1/models.
 # Free tier: ~20 req/min, 50 req/day (1,000/day after a one-time $10 top-up).
 # Get a key: https://openrouter.ai/settings/keys
 [providers.openrouter]
@@ -107,19 +108,40 @@ model = "llama-3.1-8b-instant"
 # id = "carol"
 # name = "Carol"
 # role = "player"
-# provider = "cerebras"
-# model = "gpt-oss-120b"
+# provider = "openrouter"
+# model = "openrouter/free"
 #
 # [[agents]]
 # id = "dave"
 # name = "Dave"
 # role = "player"
-# provider = "google"
-# model = "gemini-2.5-flash"
+# provider = "cerebras"
+# model = "gpt-oss-120b"
 #
 # [[agents]]
 # id = "erin"
 # name = "Erin"
+# role = "player"
+# provider = "google"
+# model = "gemini-2.5-flash"
+#
+# [[agents]]
+# id = "frank"
+# name = "Frank"
+# role = "player"
+# provider = "github"
+# model = "openai/gpt-4o-mini"
+#
+# [[agents]]
+# id = "grace"
+# name = "Grace"
+# role = "player"
+# provider = "mistral"
+# model = "mistral-small-latest"
+#
+# [[agents]]
+# id = "henry"
+# name = "Henry"
 # role = "player"
 # provider = "ollama"
 # model = "gemma3:4b"
