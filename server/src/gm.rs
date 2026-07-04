@@ -21,18 +21,12 @@ fn game_spec_schema() -> Value {
             "num_rounds": { "type": "integer", "minimum": 1, "maximum": 20 },
             "action_schema": { "type": "object" },
             "payoff_description": { "type": "string" },
+            // Lenient on purpose: small models often mangle entry keys.
+            // Malformed entries are dropped in spec_from_json and the GM
+            // adjudicates rounds instead — better than failing the match.
             "payoff_matrix": {
                 "type": "array",
-                "items": {
-                    "type": "object",
-                    "required": ["action_a", "action_b", "score_a", "score_b"],
-                    "properties": {
-                        "action_a": { "type": "string" },
-                        "action_b": { "type": "string" },
-                        "score_a": { "type": "number" },
-                        "score_b": { "type": "number" }
-                    }
-                }
+                "items": { "type": "object" }
             }
         }
     })
@@ -137,20 +131,34 @@ impl GameMaster<'_> {
 }
 
 fn spec_from_json(value: &Value) -> pb::GameSpec {
-    let payoff_matrix = value["payoff_matrix"]
+    // Keep only well-formed entries; a partial matrix is discarded entirely
+    // (a lookup miss mid-game would silently punt to the GM anyway, but an
+    // empty matrix makes the adjudication path explicit from round 1).
+    let mut payoff_matrix: Vec<pb::PayoffEntry> = value["payoff_matrix"]
         .as_array()
         .map(|entries| {
             entries
                 .iter()
-                .map(|e| pb::PayoffEntry {
-                    action_a: e["action_a"].as_str().unwrap_or_default().to_string(),
-                    action_b: e["action_b"].as_str().unwrap_or_default().to_string(),
-                    score_a: e["score_a"].as_f64().unwrap_or(0.0),
-                    score_b: e["score_b"].as_f64().unwrap_or(0.0),
+                .filter_map(|e| {
+                    Some(pb::PayoffEntry {
+                        action_a: e.get("action_a")?.as_str()?.to_string(),
+                        action_b: e.get("action_b")?.as_str()?.to_string(),
+                        score_a: e.get("score_a")?.as_f64()?,
+                        score_b: e.get("score_b")?.as_f64()?,
+                    })
                 })
                 .collect()
         })
         .unwrap_or_default();
+    let total_entries = value["payoff_matrix"].as_array().map_or(0, |a| a.len());
+    if payoff_matrix.len() != total_entries {
+        tracing::warn!(
+            kept = payoff_matrix.len(),
+            total = total_entries,
+            "GM payoff matrix partially malformed; falling back to GM adjudication"
+        );
+        payoff_matrix.clear();
+    }
 
     pb::GameSpec {
         id: Uuid::new_v4().to_string(),
