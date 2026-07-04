@@ -36,6 +36,13 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Arc::new(Config::load()?);
     let store = Store::open(&config.server.database).await?;
+    let interrupted = store.fail_interrupted_matches().await?;
+    if !interrupted.is_empty() {
+        tracing::warn!(
+            count = interrupted.len(),
+            "marked interrupted matches as failed after restart"
+        );
+    }
     let engine = Engine {
         config: config.clone(),
         llm: LlmClient::new(),
@@ -108,6 +115,8 @@ async fn start_match(
         .create_match(&match_id, &req.agent_a_id, &req.agent_b_id, &gm_id)
         .await
         .map_err(internal)?;
+    // Open the event bus before spawning so WatchMatch never races an empty channel.
+    engine.bus.open(&match_id).await;
 
     tokio::spawn(engine.clone().run_match(
         match_id.clone(),
@@ -163,6 +172,25 @@ async fn watch_match(
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
                 }
+            }
+        } else if let Some((summary, _)) = engine.store.get_match(&match_id).await.ok().flatten() {
+            let status = pbv1::MatchStatus::try_from(summary.status)
+                .unwrap_or(pbv1::MatchStatus::Unspecified);
+            if Store::is_active_status(status) {
+                let message = "Match is no longer running (server restarted or the task ended).";
+                let _ = engine
+                    .store
+                    .fail_match_with_error(&match_id, message)
+                    .await;
+                yield Ok(pbv1::MatchEvent {
+                    match_id: match_id.clone(),
+                    timestamp_ms: crate::store::now_ms(),
+                    event: Some(pbv1::match_event::Event::MatchError(
+                        pbv1::match_event::MatchError {
+                            message: message.to_string(),
+                        },
+                    )),
+                });
             }
         }
     };

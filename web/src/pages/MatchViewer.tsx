@@ -2,13 +2,41 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { arena } from "../api";
 import type { GameSpec, MatchEvent, RoundResult } from "../gen/aliceandbob/v1/game_pb";
-import { Adjudicator, TurnStructure } from "../gen/aliceandbob/v1/game_pb";
+import { Adjudicator, MatchStatus, TurnStructure } from "../gen/aliceandbob/v1/game_pb";
+import type { GetMatchResponse } from "../gen/aliceandbob/v1/service_pb";
 
 interface ActionView {
   agentId: string;
   round: number;
   actionJson: string;
   reasoning: string;
+}
+
+type StreamState = "connecting" | "live" | "reconnecting" | "ended" | "error";
+
+function sleep(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(timer);
+        reject(new DOMException("Aborted", "AbortError"));
+      },
+      { once: true },
+    );
+  });
+}
+
+function isTerminalStatus(status: MatchStatus | undefined) {
+  return status === MatchStatus.COMPLETED || status === MatchStatus.FAILED;
+}
+
+function formatFinalResult(totalA: number, totalB: number, winnerId: string) {
+  if (winnerId) {
+    return `Winner: ${winnerId} (${totalA.toFixed(1)} – ${totalB.toFixed(1)})`;
+  }
+  return `Draw (${totalA.toFixed(1)} – ${totalB.toFixed(1)})`;
 }
 
 export default function MatchViewer() {
@@ -20,32 +48,42 @@ export default function MatchViewer() {
   const [memoNotes, setMemoNotes] = useState<string[]>([]);
   const [finalResult, setFinalResult] = useState<string>("");
   const [matchError, setMatchError] = useState<string>("");
-  const [streamState, setStreamState] = useState<"connecting" | "live" | "ended" | "error">(
-    "connecting",
-  );
+  const [streamState, setStreamState] = useState<StreamState>("connecting");
   const logEnd = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!matchId) return;
     const abort = new AbortController();
+    let reconnectAttempt = 0;
 
-    (async () => {
-      try {
-        setStreamState("connecting");
-        for await (const event of arena.watchMatch({ matchId }, { signal: abort.signal })) {
-          setStreamState("live");
-          handleEvent(event);
-        }
-        setStreamState("ended");
-      } catch (e) {
-        if (!abort.signal.aborted) {
-          setStreamState("error");
-          setMatchError(String(e));
-        }
+    const resetLiveState = () => {
+      setSpec(undefined);
+      setRounds([]);
+      setPendingActions([]);
+      setCurrentRound(0);
+      setMemoNotes([]);
+      setFinalResult("");
+      setMatchError("");
+    };
+
+    const hydrateFromGetMatch = (snap: GetMatchResponse) => {
+      if (snap.spec) setSpec(snap.spec);
+      if (snap.rounds.length > 0) {
+        setRounds(snap.rounds.slice().sort((a, b) => a.round - b.round));
       }
-    })();
+      const summary = snap.summary;
+      const result = summary?.result;
+      if (summary?.status === MatchStatus.COMPLETED && result) {
+        setFinalResult(
+          formatFinalResult(result.totalScoreA, result.totalScoreB, result.winnerAgentId),
+        );
+      }
+      if (summary?.status === MatchStatus.FAILED) {
+        setMatchError("Match interrupted (server restarted while this match was running).");
+      }
+    };
 
-    function handleEvent(event: MatchEvent) {
+    const handleEvent = (event: MatchEvent) => {
       const e = event.event;
       switch (e.case) {
         case "gameGenerated":
@@ -98,7 +136,59 @@ export default function MatchViewer() {
           setMatchError(e.value.message);
           break;
       }
-    }
+    };
+
+    (async () => {
+      while (!abort.signal.aborted) {
+        try {
+          resetLiveState();
+          setStreamState(reconnectAttempt > 0 ? "reconnecting" : "connecting");
+
+          for await (const event of arena.watchMatch({ matchId }, { signal: abort.signal })) {
+            setStreamState("live");
+            setMatchError("");
+            handleEvent(event);
+          }
+
+          const snap = await arena.getMatch({ matchId }, { signal: abort.signal });
+          hydrateFromGetMatch(snap);
+          if (isTerminalStatus(snap.summary?.status)) {
+            setStreamState("ended");
+            return;
+          }
+
+          reconnectAttempt++;
+          setStreamState("reconnecting");
+          await sleep(Math.min(1000 * reconnectAttempt, 5000), abort.signal);
+        } catch (e) {
+          if (abort.signal.aborted) return;
+
+          try {
+            const snap = await arena.getMatch({ matchId }, { signal: abort.signal });
+            hydrateFromGetMatch(snap);
+            if (isTerminalStatus(snap.summary?.status)) {
+              setStreamState("ended");
+              return;
+            }
+          } catch {
+            // keep retrying
+          }
+
+          reconnectAttempt++;
+          setStreamState("reconnecting");
+          setMatchError(
+            reconnectAttempt === 1
+              ? "Connection lost — retrying. This can happen during deploys or long pauses between LLM calls."
+              : `Connection lost — retrying (${reconnectAttempt})…`,
+          );
+          try {
+            await sleep(Math.min(1000 * reconnectAttempt, 5000), abort.signal);
+          } catch {
+            return;
+          }
+        }
+      }
+    })();
 
     return () => abort.abort();
   }, [matchId]);

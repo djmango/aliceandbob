@@ -104,6 +104,51 @@ impl Store {
         Ok(())
     }
 
+    /// Marks unfinished matches as failed on startup (e.g. after a container restart
+    /// killed in-flight background tasks).
+    pub async fn fail_interrupted_matches(&self) -> Result<Vec<String>> {
+        let rows = sqlx::query(
+            "SELECT id FROM matches WHERE status NOT IN (?, ?)",
+        )
+        .bind(pb::MatchStatus::Completed as i32)
+        .bind(pb::MatchStatus::Failed as i32)
+        .fetch_all(&self.pool)
+        .await?;
+        let message = "Match interrupted (server restarted while this match was running).";
+        let mut ids = Vec::with_capacity(rows.len());
+        for row in rows {
+            let id: String = row.get("id");
+            self.fail_match_with_error(&id, message).await?;
+            ids.push(id);
+        }
+        Ok(ids)
+    }
+
+    pub async fn fail_match_with_error(&self, id: &str, message: &str) -> Result<()> {
+        self.set_match_status(id, pb::MatchStatus::Failed).await?;
+        let event = pb::MatchEvent {
+            match_id: id.to_string(),
+            timestamp_ms: now_ms(),
+            event: Some(pb::match_event::Event::MatchError(
+                pb::match_event::MatchError {
+                    message: message.to_string(),
+                },
+            )),
+        };
+        self.append_event(id, &event).await?;
+        Ok(())
+    }
+
+    pub fn is_active_status(status: pb::MatchStatus) -> bool {
+        matches!(
+            status,
+            pb::MatchStatus::Pending
+                | pb::MatchStatus::GeneratingGame
+                | pb::MatchStatus::InProgress
+                | pb::MatchStatus::Reflecting
+        )
+    }
+
     pub async fn set_match_spec(&self, id: &str, title: &str, spec_json: &str) -> Result<()> {
         sqlx::query("UPDATE matches SET game_title = ?, spec_json = ? WHERE id = ?")
             .bind(title)
