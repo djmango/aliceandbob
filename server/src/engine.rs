@@ -100,7 +100,7 @@ impl Engine {
                 .emit(
                     &ctx,
                     pb::match_event::Event::MatchError(pb::match_event::MatchError {
-                        message: e.to_string(),
+                        message: format!("{e:#}"),
                     }),
                 )
                 .await;

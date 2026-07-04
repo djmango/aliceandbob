@@ -46,9 +46,8 @@ api_key_env = "GEMINI_API_KEY"
 requests_per_minute = 8
 max_concurrent = 2
 
-# Cerebras — fastest free tokens anywhere (~2,000 tok/s on 70B).
-# Free tier: ~30 req/min, ~1M tokens/day.
-# Get a key: https://cloud.cerebras.ai/ (API Keys in the sidebar)
+# Cerebras — check https://api.cerebras.ai/v1/models for current ids.
+# Free tier (mid-2026): gpt-oss-120b, gemma-4-31b, zai-glm-4.7
 [providers.cerebras]
 base_url = "https://api.cerebras.ai/v1"
 api_key_env = "CEREBRAS_API_KEY"
@@ -109,7 +108,7 @@ model = "llama-3.1-8b-instant"
 # name = "Carol"
 # role = "player"
 # provider = "cerebras"
-# model = "llama-3.3-70b"
+# model = "gpt-oss-120b"
 #
 # [[agents]]
 # id = "dave"
