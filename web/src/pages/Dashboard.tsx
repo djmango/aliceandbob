@@ -150,7 +150,7 @@ export default function Dashboard() {
               {players.length === 0 && (
                 <tr>
                   <td colSpan={5} className="muted">
-                    No players yet — check providers.toml
+                    No players yet - check providers.toml
                   </td>
                 </tr>
               )}
@@ -187,7 +187,7 @@ export default function Dashboard() {
                     {m.result
                       ? `${m.result.totalScoreA.toFixed(1)} – ${m.result.totalScoreB.toFixed(1)}` +
                         (m.result.winnerAgentId ? ` (${m.result.winnerAgentId})` : " (draw)")
-                      : "—"}
+                      : "-"}
                   </td>
                 </tr>
               ))}

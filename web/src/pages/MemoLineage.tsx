@@ -33,7 +33,7 @@ export default function MemoLineage() {
       <section className="card">
         <h2>Memo Lineage</h2>
         <p className="muted">
-          A player's strategy memo is its evolving "genome" — rewritten after every match. Watch
+          A player's strategy memo is its evolving "genome", rewritten after every match. Watch
           strategies develop across generations.
         </p>
         <label>
@@ -67,7 +67,7 @@ export default function MemoLineage() {
         ))}
       {memos.length === 0 && (
         <section className="card">
-          <p className="muted">No memos yet — play a match first.</p>
+          <p className="muted">No memos yet - play a match first.</p>
         </section>
       )}
     </div>

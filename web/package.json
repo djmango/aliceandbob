@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "check:no-emdash": "bash ../scripts/check-no-emdash.sh",
     "preview": "vite preview"
   },
   "dependencies": {

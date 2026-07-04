@@ -178,8 +178,8 @@ export default function MatchViewer() {
           setStreamState("reconnecting");
           setMatchError(
             reconnectAttempt === 1
-              ? "Connection lost — retrying. This can happen during deploys or long pauses between LLM calls."
-              : `Connection lost — retrying (${reconnectAttempt})…`,
+              ? "Connection lost - retrying. This can happen during deploys or long pauses between LLM calls."
+              : `Connection lost - retrying (${reconnectAttempt})…`,
           );
           try {
             await sleep(Math.min(1000 * reconnectAttempt, 5000), abort.signal);
