@@ -149,8 +149,28 @@ impl Config {
         self.agents.iter().find(|a| a.id == id)
     }
 
+    /// Whether the agent's provider is actually usable right now: either it
+    /// needs no API key (e.g. Ollama) or its key resolves to a real value.
+    /// "CHANGE_ME" is treated as unset (common secrets-placeholder value).
+    pub fn agent_usable(&self, agent: &AgentEntry) -> bool {
+        let Some(provider) = self.providers.get(&agent.provider) else {
+            return false;
+        };
+        if provider.api_key.is_none() && provider.api_key_env.is_none() {
+            return true;
+        }
+        provider
+            .resolve_api_key()
+            .is_some_and(|k| !k.is_empty() && k != "CHANGE_ME")
+    }
+
+    /// First GM with a usable provider; falls back to any GM so the error
+    /// surfaces at match time rather than silently having no GM.
     pub fn default_gm(&self) -> Option<&AgentEntry> {
-        self.agents.iter().find(|a| a.is_gm())
+        self.agents
+            .iter()
+            .find(|a| a.is_gm() && self.agent_usable(a))
+            .or_else(|| self.agents.iter().find(|a| a.is_gm()))
     }
 
     pub fn players(&self) -> impl Iterator<Item = &AgentEntry> {
